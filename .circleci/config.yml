@@ -12,8 +12,12 @@ jobs:
           name: "Run lint"
           command: yarn run lint
       - run:
+          working_directory: ~/project
           name: "Run test-expressions"
-          command: yarn run test-expressions
+          command: yarn run test-expressions > /tmp/test-expressions-report
+      - store_artifacts:
+          path: /tmp/test-expressions-report
+          destination: test-expressions-report
       - run:
           name: "Run unit test"
           command: yarn run test-unit

@@ -1,13 +1,24 @@
 version: 2.1
 
 jobs:
-  build:
+  installation:
     docker:
-    - image: circleci/node:10.16-browsers
+      - image: circleci/node:10.16-browsers
     working_directory: ~/mapbox-gl-js
     steps:
       - checkout
       - run: yarn
+      - persist_to_workspace:
+          root: ~/mapbox-gl-js
+          paths:
+            - ./
+  build-and-test:
+    docker:
+    - image: circleci/node:10.16-browsers
+    working_directory: ~/mapbox-gl-js
+    steps:
+      - attach_workspace:
+            at: .
       - run: yarn run lint
       - run: yarn run lint-docs
       - run: yarn run lint-css
@@ -42,3 +53,11 @@ jobs:
       - run:
           name: Build
           command: BENCHMARK_VERSION="${CIRCLE_TAG:-$CIRCLE_BRANCH} $(git rev-parse --short=7 HEAD)" yarn run build-benchmarks
+workflows:
+  version: 2
+  installation-build-test:
+    jobs:
+      - installation
+      - build-and-test:
+          requires:
+            - installation

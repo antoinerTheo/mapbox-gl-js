@@ -1,10 +1,13 @@
 version: 2.1
 
+default_job_params: &default_job_params
+  docker:
+    - image: circleci/node:10.16-browsers
+  working_directory: ~/mapbox-gl-js
+
 jobs:
   installation:
-    docker:
-      - image: circleci/node:10.16-browsers
-    working_directory: ~/mapbox-gl-js
+    <<: *default_job_params
     steps:
       - checkout
       - run: yarn
@@ -12,16 +15,11 @@ jobs:
           root: ~/mapbox-gl-js
           paths:
             - ./
-  build-and-test:
-    docker:
-    - image: circleci/node:10.16-browsers
-    working_directory: ~/mapbox-gl-js
+  build:
+    <<: *default_job_params
     steps:
       - attach_workspace:
             at: .
-      - run: yarn run lint
-      - run: yarn run lint-docs
-      - run: yarn run lint-css
       - run: yarn run build-prod-min
       - run: yarn run build-prod
       - run: yarn run build-csp
@@ -39,8 +37,30 @@ jobs:
           command: |
             node build/check-bundle-size.js "dist/mapbox-gl.js" "JS"
             node build/check-bundle-size.js "dist/mapbox-gl.css" "CSS"
+      - run:
+          name: Build
+          command: BENCHMARK_VERSION="${CIRCLE_TAG:-$CIRCLE_BRANCH} $(git rev-parse --short=7 HEAD)" yarn run build-benchmarks
+  static-analysis:
+    <<: *default_job_params
+    steps:
+      - attach_workspace:
+          at: .
+      - run: yarn run lint
+      - run: yarn run lint-docs
+      - run: yarn run lint-css
       - run: yarn run test-flow
+      - run: yarn run test-expressions
+  unit-tests:
+    <<: *default_job_params
+    steps:
+      - attach_workspace:
+          at: .
       - run: yarn run test-unit
+  integration-tests:
+    <<: *default_job_params
+    steps:
+      - attach_workspace:
+          at: .
       - run: yarn run test-render
       - store_artifacts:
           path: "test/integration/render-tests/index.html"
@@ -49,15 +69,21 @@ jobs:
           path: test/integration/query-tests
       - store_artifacts:
           path: "test/integration/query-tests/index.html"
-      - run: yarn run test-expressions
-      - run:
-          name: Build
-          command: BENCHMARK_VERSION="${CIRCLE_TAG:-$CIRCLE_BRANCH} $(git rev-parse --short=7 HEAD)" yarn run build-benchmarks
+
 workflows:
   version: 2
   installation-build-test:
     jobs:
       - installation
-      - build-and-test:
+      - static-analysis:
+          requires:
+            - installation
+      - unit-tests:
+          requires:
+            - installation
+      - integration-tests:
+          requires:
+            - installation
+      - build:
           requires:
             - installation

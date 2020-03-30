@@ -10,9 +10,17 @@ jobs:
     <<: *default_job_params
     steps:
       - checkout
+      - restore_cache:
+            name: "Restoring cache"
+            key: node-modules{{ checksum "yarn.lock" }}
       - run: yarn --frozen-lockfile
+      - save_cache:
+          name: "Saving cache"
+          key: node-modules{{ checksum "yarn.lock" }}
+          paths:
+            - node_modules/
       - persist_to_workspace:
-          # Must be an absolute path, or relative path from working_directory. This is a directory on the container which is 
+          # Must be an absolute path, or relative path from working_directory. This is a directory on the container which is
           # taken to be the root directory of the workspace.
           root: ~/mapbox-gl-js
           # Must be relative path from root
